@@ -2,31 +2,70 @@
 use std::fmt::Debug;
 
 #[derive(Debug)]
-pub struct MultiJsonlParser<'a, Slice>
+pub struct MultiJsonlParser<'a, AsSlice>
 where
-    Slice: AsRef<[u8]>,
+    AsSlice: AsRef<[u8]>,
 {
     counter: usize,
     quote_counter: usize,
-    slice: &'a Slice,
+    slice: &'a AsSlice,
     slice_len: usize,
-    last: u8,
+    last: &'a u8,
 }
 
-impl<'a, Slice> MultiJsonlParser<'a, Slice>
+impl<'a, AsSlice> MultiJsonlParser<'a, AsSlice>
 where
-    Slice: AsRef<[u8]>,
+    AsSlice: AsRef<[u8]>,
 {
-    pub fn new(mmap: &'a Slice) -> Self {
+    pub fn new(mmap: &'a AsSlice) -> Self {
         Self {
             counter: 0,
             quote_counter: 0,
             slice_len: mmap.as_ref().len(),
             slice: mmap,
-            last: b'a',
+            last: &b'a',
         }
     }
 }
+
+struct DefaultInternalJsonlParser {
+    last: u8,
+    quote_counter: usize,
+}
+
+impl<AsSlice> InternalJsonlParser<AsSlice> for DefaultInternalJsonlParser
+where
+    AsSlice: AsRef<[u8]>,
+{
+    fn last_byte(&self) -> u8 {
+        self.last
+    }
+    fn set_last_byte(&mut self, new: u8) {
+        self.last = new
+    }
+    fn quote_num(&self) -> usize {
+        self.quote_counter
+    }
+    fn set_quote_num(&mut self, new: usize) {
+        self.quote_counter = new
+    }
+    fn has_found_line_feed(&mut self, slice: AsSlice) -> bool {}
+}
+
+pub trait InternalJsonlParser<AsSlice>
+where
+    AsSlice: AsRef<[u8]>,
+{
+    fn has_found_line_feed(&mut self, slice: AsSlice) -> bool;
+    fn last_byte(&self) -> u8;
+    fn set_last_byte(&mut self, new: u8);
+    fn quote_num(&self) -> usize;
+    fn set_quote_num(&mut self, new: usize);
+}
+
+// impl<'a, Slice> MultiJsonlParser<'a, Slice> {
+//     fn compare
+// }
 
 impl<'a, Slice> Iterator for MultiJsonlParser<'a, Slice>
 where
@@ -40,7 +79,7 @@ where
             if current_iter_counter >= self.slice_len {
                 return None;
             }
-            let b = self.slice.as_ref()[current_iter_counter];
+            let b = unsafe { self.slice.as_ref().get_unchecked(current_iter_counter) };
             match b {
                 // End of line and inside a string
                 b'\n' if self.quote_counter % 2 == 1 => self.last = b,
@@ -53,12 +92,12 @@ where
                 }
                 //
                 // Quote inside a string
-                b'"' if self.last == b'\\' => {
+                b'"' if self.last == &b'\\' => {
                     self.last = b;
                 }
 
                 // Quote, but not inside a string
-                b'"' if self.last != b'\\' => {
+                b'"' if self.last != &b'\\' => {
                     self.last = b;
                     self.quote_counter += 1;
                 }
@@ -88,13 +127,13 @@ mod test {
         assert_eq!(iter.count(), 4)
     }
 
-    // #[test]
-    // fn test_small_example_jsonl_() {
-    //     let sliced = std::fs::read("./tests/test_data/jsonl_file.jsonl").unwrap();
-    //     let vec_slices_actual: Vec<_> = MultiJsonlParser::new(&sliced).collect();
-    //     let mut total_slices: &[u8];
-    //     for v in vec_slices_actual {
-    //         total_slices.to_owned::<Vec<_>>().concat(v)
-    //     }
-    // }
+    #[test]
+    fn test_small_example_jsonl_() {
+        let sliced = std::fs::read("./tests/test_data/jsonl_file.jsonl").unwrap();
+        let mut slices_actual: Vec<u8> = Vec::default();
+        for v in MultiJsonlParser::new(&sliced) {
+            slices_actual.extend(v);
+        }
+        assert_eq!(sliced, slices_actual)
+    }
 }
