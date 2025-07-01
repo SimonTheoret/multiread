@@ -4,26 +4,26 @@ use std::fmt::Debug;
 #[derive(Debug)]
 pub struct MultiJsonlByteParser<'a, Slice>
 where
-    Slice: AsRef<[u8]>,
+    AsSlice: AsRef<[u8]>,
 {
     counter: usize,
     quote_counter: usize,
-    slice: &'a Slice,
+    slice: &'a AsSlice,
     slice_len: usize,
-    last: u8,
+    last: &'a u8,
 }
 
 impl<'a, Slice> MultiJsonlByteParser<'a, Slice>
 where
-    Slice: AsRef<[u8]>,
+    AsSlice: AsRef<[u8]>,
 {
-    pub fn new(mmap: &'a Slice) -> Self {
+    pub fn new(mmap: &'a AsSlice) -> Self {
         Self {
             counter: 0,
             quote_counter: 0,
             slice_len: mmap.as_ref().len(),
             slice: mmap,
-            last: b'a',
+            last: &b'a',
         }
     }
 }
@@ -40,7 +40,7 @@ where
             if current_iter_counter >= self.slice_len {
                 return None;
             }
-            let b = self.slice.as_ref()[current_iter_counter];
+            let b = unsafe { self.slice.as_ref().get_unchecked(current_iter_counter) };
             match b {
                 // End of line and inside a string
                 b'\n' if self.quote_counter % 2 == 1 => self.last = b,
@@ -53,12 +53,12 @@ where
                 }
                 //
                 // Quote inside a string
-                b'"' if self.last == b'\\' => {
+                b'"' if self.last == &b'\\' => {
                     self.last = b;
                 }
 
                 // Quote, but not inside a string
-                b'"' if self.last != b'\\' => {
+                b'"' if self.last != &b'\\' => {
                     self.last = b;
                     self.quote_counter += 1;
                 }
@@ -88,13 +88,13 @@ mod test {
         assert_eq!(iter.count(), 4)
     }
 
-    // #[test]
-    // fn test_small_example_jsonl_() {
-    //     let sliced = std::fs::read("./tests/test_data/jsonl_file.jsonl").unwrap();
-    //     let vec_slices_actual: Vec<_> = MultiJsonlParser::new(&sliced).collect();
-    //     let mut total_slices: &[u8];
-    //     for v in vec_slices_actual {
-    //         total_slices.to_owned::<Vec<_>>().concat(v)
-    //     }
-    // }
+    #[test]
+    fn test_small_example_jsonl_() {
+        let sliced = std::fs::read("./tests/test_data/jsonl_file.jsonl").unwrap();
+        let mut slices_actual: Vec<u8> = Vec::default();
+        for v in MultiJsonlParser::new(&sliced) {
+            slices_actual.extend(v);
+        }
+        assert_eq!(sliced, slices_actual)
+    }
 }
