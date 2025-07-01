@@ -2,7 +2,7 @@
 use std::fmt::Debug;
 
 #[derive(Debug)]
-pub struct MultiJsonlParser<'a, Slice>
+pub struct MultiJsonlByteParser<'a, Slice>
 where
     Slice: AsRef<[u8]>,
 {
@@ -13,7 +13,7 @@ where
     last: u8,
 }
 
-impl<'a, Slice> MultiJsonlParser<'a, Slice>
+impl<'a, Slice> MultiJsonlByteParser<'a, Slice>
 where
     Slice: AsRef<[u8]>,
 {
@@ -28,7 +28,7 @@ where
     }
 }
 
-impl<'a, Slice> Iterator for MultiJsonlParser<'a, Slice>
+impl<'a, Slice> Iterator for MultiJsonlByteParser<'a, Slice>
 where
     Slice: AsRef<[u8]>,
 {
@@ -84,7 +84,7 @@ mod test {
     #[test]
     fn test_small_example_jsonl_len() {
         let sliced = std::fs::read("./tests/test_data/jsonl_file.jsonl").unwrap();
-        let iter = MultiJsonlParser::new(&sliced);
+        let iter = MultiJsonlByteParser::new(&sliced);
         assert_eq!(iter.count(), 4)
     }
 
