@@ -1,9 +1,5 @@
-// PROTOTYPE
-use std::fmt::Debug;
-mod reader_256_bits;
-
 #[derive(Debug, Clone)]
-pub struct MultiJsonlByteParser<'a, AsSlice>
+pub struct MultiJsonl256BitsParser<'a, AsSlice>
 where
     AsSlice: AsRef<[u8]>,
 {
@@ -14,7 +10,7 @@ where
     last: &'a u8,
 }
 
-impl<'a, AsSlice> MultiJsonlByteParser<'a, AsSlice>
+impl<'a, AsSlice> MultiJsonl256BitsParser<'a, AsSlice>
 where
     AsSlice: AsRef<[u8]>,
 {
@@ -29,7 +25,7 @@ where
     }
 }
 
-impl<'a, AsSlice> Iterator for MultiJsonlByteParser<'a, AsSlice>
+impl<'a, AsSlice> Iterator for MultiJsonl256BitsParser<'a, AsSlice>
 where
     AsSlice: AsRef<[u8]>,
 {
@@ -75,27 +71,5 @@ where
             let out = &self.slice.as_ref()[lower_bound..self.counter];
             Some(out)
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use pretty_assertions::assert_eq;
-    #[test]
-    fn test_small_example_jsonl_len() {
-        let sliced = std::fs::read("./tests/test_data/jsonl_file.jsonl").unwrap();
-        let iter = MultiJsonlByteParser::new(&sliced);
-        assert_eq!(iter.count(), 4)
-    }
-
-    #[test]
-    fn test_small_example_jsonl_() {
-        let sliced = std::fs::read("./tests/test_data/jsonl_file.jsonl").unwrap();
-        let mut slices_actual: Vec<u8> = Vec::default();
-        for v in MultiJsonlByteParser::new(&sliced) {
-            slices_actual.extend(v);
-        }
-        assert_eq!(sliced, slices_actual)
     }
 }
