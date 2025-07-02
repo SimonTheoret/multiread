@@ -1,8 +1,8 @@
 // PROTOTYPE
 use std::fmt::Debug;
 
-#[derive(Debug)]
-pub struct MultiJsonlByteParser<'a, Slice>
+#[derive(Debug, Clone)]
+pub struct MultiJsonlByteParser<'a, AsSlice>
 where
     AsSlice: AsRef<[u8]>,
 {
@@ -13,7 +13,7 @@ where
     last: &'a u8,
 }
 
-impl<'a, Slice> MultiJsonlByteParser<'a, Slice>
+impl<'a, AsSlice> MultiJsonlByteParser<'a, AsSlice>
 where
     AsSlice: AsRef<[u8]>,
 {
@@ -28,9 +28,9 @@ where
     }
 }
 
-impl<'a, Slice> Iterator for MultiJsonlByteParser<'a, Slice>
+impl<'a, AsSlice> Iterator for MultiJsonlByteParser<'a, AsSlice>
 where
-    Slice: AsRef<[u8]>,
+    AsSlice: AsRef<[u8]>,
 {
     type Item = &'a [u8];
 
@@ -92,7 +92,7 @@ mod test {
     fn test_small_example_jsonl_() {
         let sliced = std::fs::read("./tests/test_data/jsonl_file.jsonl").unwrap();
         let mut slices_actual: Vec<u8> = Vec::default();
-        for v in MultiJsonlParser::new(&sliced) {
+        for v in MultiJsonlByteParser::new(&sliced) {
             slices_actual.extend(v);
         }
         assert_eq!(sliced, slices_actual)
