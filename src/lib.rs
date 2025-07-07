@@ -1,6 +1,7 @@
 // PROTOTYPE
 use std::fmt::Debug;
 mod reader_256_bits;
+mod simd;
 
 #[derive(Debug, Clone)]
 pub struct MultiJsonlByteParser<'a, AsSlice>
@@ -51,11 +52,6 @@ where
                     self.last = b;
                     current_iter_counter += 1;
                     break;
-                }
-                //
-                // Quote inside a string
-                b'"' if self.last == &b'\\' => {
-                    self.last = b;
                 }
 
                 // Quote, but not inside a string
