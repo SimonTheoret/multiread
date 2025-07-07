@@ -24,7 +24,7 @@
             "rust-src"
             "rust-analyzer"
           ];
-          targets = [ ];
+          targets = ["x86_64-unknown-linux-gnu" "i686-unknown-linux-gnu"];
         };
       in
       {
