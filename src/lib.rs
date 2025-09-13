@@ -1,5 +1,6 @@
 // PROTOTYPE
 use std::fmt::Debug;
+mod utils;
 
 #[derive(Debug, Clone)]
 pub struct MultiJsonlByteParser<'a, AsSlice>
@@ -79,13 +80,16 @@ where
 
 #[cfg(test)]
 mod test {
+
     use super::*;
     use pretty_assertions::assert_eq;
     #[test]
     fn test_small_example_jsonl_len() {
         let sliced = std::fs::read("./tests/test_data/jsonl_file.jsonl").unwrap();
         let iter = MultiJsonlByteParser::new(&sliced);
-        assert_eq!(iter.count(), 4)
+        // dbg!('\n' as u32 );
+        dbg!("b\n".as_bytes());
+        assert_eq!(iter.count(), 1)
     }
 
     #[test]

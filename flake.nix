@@ -29,16 +29,17 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          buildInputs =
-            [ rust ]
-            ++ (with pkgs; [
-              pkg-config
-              cargo-expand
-              cargo-nextest
-              cargo-expand
-              cargo-nextest
-              cargo-insta
-            ]);
+          buildInputs = [
+            rust
+          ]
+          ++ (with pkgs; [
+            pkg-config
+            cargo-expand
+            cargo-nextest
+            cargo-expand
+            cargo-nextest
+            cargo-insta
+          ]);
         };
       }
     );
