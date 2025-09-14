@@ -1,22 +1,29 @@
+use std::{arch::x86_64::__m256i, slice::from_raw_parts};
+
 use crate::LocationMap;
 
 #[inline]
-#[target_feature(enable = "avx512bw,avx512f")]
+#[target_feature(enable = "avx,avx2")]
+/// WARNING: This function assumes that `s` is of length 32 (i.e. contains 32 u8).
 pub unsafe fn find_all_matches_m256(s: &[u8], b: u8) -> LocationMap<32> {
-    let addr = s.as_ptr() as *const i8;
-    let mut mask = unsafe {
+    let bag = s.as_ptr() as *const __m256i;
+    let are_eq = unsafe {
+        // feature: avx
         let nl_reg = std::arch::x86_64::_mm256_set1_epi8(b as i8);
-        let loaded_slice = std::arch::x86_64::_mm256_loadu_epi8(addr);
-        std::arch::x86_64::_mm256_cmpeq_epi8_mask(nl_reg, loaded_slice)
+        // feature: avx
+        let loaded_slice = std::arch::x86_64::_mm256_loadu_si256(bag);
+        // feature: avx2
+        std::arch::x86_64::_mm256_cmpeq_epi8(nl_reg, loaded_slice)
     };
+    let bob: [u8; 32] = unsafe { std::mem::transmute(are_eq) }; // BAG OF BYTES (BOB)
     let mut buf = [0usize; 32];
     let mut count = 0;
-    while mask != 0 {
-        let pos = mask.trailing_zeros();
-        buf[count] = pos as usize;
-        mask &= mask - 1; // Clear lowest set bit
-        count += 1;
-    }
+    (0..32).for_each(|idx| {
+        if bob[idx] != 0 {
+            buf[count] = idx;
+            count += 1;
+        }
+    });
     LocationMap {
         map: buf,
         len: count,

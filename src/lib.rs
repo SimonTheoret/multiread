@@ -63,7 +63,8 @@ impl<const N: usize> IntoIterator for LocationMap<N> {
     }
 }
 
-fn parse_slice_lf<AsSlice>(s: &[u8]) -> LocationMap<32> {
+//NOTE: Change the location map 32 to 16 for m256 ?
+fn parse_slice_lf(s: &[u8]) -> LocationMap<32> {
     cfg_if! {
         if #[cfg(all(target_feature = "avx512bw", target_feature = "avx512f"))] {
             unsafe { find_all_matches_m512(s, b'\n') }
@@ -76,9 +77,36 @@ fn parse_slice_lf<AsSlice>(s: &[u8]) -> LocationMap<32> {
     }
 }
 
+pub struct LineParser<'a>(&'a [u8]);
+
+impl<'a> LineParser<'a> {
+    const OFFSET_MULTIPLIER: usize = 32;
+}
+
+impl<'a> Iterator for LineParser<'a> {
+    type Item = &'a [u8];
+    fn next(&mut self) -> Option<Self::Item> {
+        parse_slice_lf()
+    }
+}
+
 #[cfg(test)]
 mod test {
-
     use super::*;
     use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_newline_finder() {
+        let exemple = r#"First sentence
+            Second sentence
+            Third"#
+            .as_bytes();
+        let expected_content = vec![
+            "First sentence".as_bytes(),
+            "Second sentence".as_bytes(),
+            "Third".as_bytes(),
+        ];
+        let iter = LineParser(&exemple);
+        assert_eq!(iter.collect(), expected_content);
+    }
 }

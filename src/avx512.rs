@@ -1,6 +1,7 @@
 use crate::LocationMap;
 
 #[inline]
+/// WARNING: This function assumes that `s` is of length 64 (i.e. contains 64 u8).
 pub unsafe fn find_all_matches_m512(s: &[u8], b: u8) -> LocationMap<32> {
     let addr = s.as_ptr() as *const i8;
     let mut mask = unsafe {
