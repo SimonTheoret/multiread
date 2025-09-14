@@ -1,12 +1,15 @@
-// PROTOTYPE
 use std::fmt::Debug;
 mod avx2;
 mod avx512;
+use cfg_if::cfg_if;
 
-#[cfg(target_feature = "avx2")]
-use avx2::find_all_matches_m256;
-#[cfg(target_feature = "avx512bw")]
-use avx512::find_all_matches_m512;
+cfg_if! {
+    if #[cfg(all(target_feature = "avx512bw", target_feature = "avx512f"))] {
+        use avx512::find_all_matches_m512;
+    } else if #[cfg(target_feature = "avx2")] {
+        use avx2::find_all_matches_m256;
+    } else {}
+}
 
 fn find_all_matches_fallback<const N: usize>(s: &[u8], b: u8) -> LocationMap<N> {
     let mut buf = [0usize; N];
@@ -60,48 +63,17 @@ impl<const N: usize> IntoIterator for LocationMap<N> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct MultiJsonlByteParser<'a, AsSlice>
-where
-    AsSlice: AsRef<[u8]>,
-{
-    counter: usize,
-    quote_counter: usize,
-    slice: &'a AsSlice,
-    slice_len: usize,
-    last: &'a u8,
-}
+fn parse_slice_lf<AsSlice>(s: &[u8]) -> LocationMap<32> {
+    cfg_if! {
+        if #[cfg(all(target_feature = "avx512bw", target_feature = "avx512f"))] {
+            unsafe { find_all_matches_m512(s, b'\n') }
+        } else if #[cfg(target_feature = "avx2")] {
+             unsafe { find_all_matches_m256(s, b'\n') }
+        } else {
+            find_all_matches_fallback(s, b'\n')
 
-impl<'a, AsSlice> MultiJsonlByteParser<'a, AsSlice>
-where
-    AsSlice: AsRef<[u8]>,
-{
-    pub fn new(mmap: &'a AsSlice) -> Self {
-        Self {
-            counter: 0,
-            quote_counter: 0,
-            slice_len: mmap.as_ref().len(),
-            slice: mmap,
-            last: &b'a',
         }
     }
-}
-
-#[allow(unreachable_code)]
-fn parse_slice_lf<'a, AsSlice>(s: &'a [u8]) -> LocationMap<32> {
-    #[cfg(all(
-        any(target_arch = "x86", target_arch = "x86_64"),
-        target_feature = "avx512bw"
-    ))]
-    return unsafe { find_all_matches_m512(s, b'\n') };
-
-    #[cfg(all(
-        any(target_arch = "x86", target_arch = "x86_64"),
-        target_feature = "avx2"
-    ))]
-    return unsafe { find_all_matches_m256(s, b'\n') };
-    #[cfg(not(any(target_feature = "avx512bw", target_feature = "avx2")))]
-    return find_all_matches_fallback(s, b'\n');
 }
 
 #[cfg(test)]

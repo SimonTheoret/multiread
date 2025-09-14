@@ -241,6 +241,7 @@ dependencies = [
 name = "multiread"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "criterion",
  "memmap2",
  "pretty_assertions",

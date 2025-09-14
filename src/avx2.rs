@@ -1,6 +1,7 @@
 use crate::LocationMap;
 
 #[inline]
+#[target_feature(enable = "avx512bw,avx512f")]
 pub unsafe fn find_all_matches_m256(s: &[u8], b: u8) -> LocationMap<32> {
     let addr = s.as_ptr() as *const i8;
     let mut mask = unsafe {
