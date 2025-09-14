@@ -1,6 +1,64 @@
 // PROTOTYPE
 use std::fmt::Debug;
-mod utils;
+mod avx2;
+mod avx512;
+
+#[cfg(target_feature = "avx2")]
+use avx2::find_all_matches_m256;
+#[cfg(target_feature = "avx512bw")]
+use avx512::find_all_matches_m512;
+
+fn find_all_matches_fallback<const N: usize>(s: &[u8], b: u8) -> LocationMap<N> {
+    let mut buf = [0usize; N];
+    let mut counter = 0;
+    let mut buf_len = 0;
+    while counter <= s.len() {
+        if s[counter] == b {
+            buf[buf_len] = counter;
+            buf_len += 1;
+        }
+        counter += 1;
+    }
+    LocationMap {
+        len: buf_len,
+        map: buf,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct LocationMap<const N: usize> {
+    map: [usize; N],
+    len: usize,
+}
+
+struct LocationMapIter<const N: usize> {
+    lm: LocationMap<N>,
+    counter: usize,
+}
+
+impl<const N: usize> Iterator for LocationMapIter<N> {
+    type Item = usize;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.counter < self.lm.len {
+            let res = self.lm.map[self.counter];
+            self.counter += 1;
+            Some(res)
+        } else {
+            None
+        }
+    }
+}
+
+impl<const N: usize> IntoIterator for LocationMap<N> {
+    type IntoIter = LocationMapIter<N>;
+    type Item = usize;
+    fn into_iter(self) -> Self::IntoIter {
+        LocationMapIter {
+            lm: self,
+            counter: 0,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct MultiJsonlByteParser<'a, AsSlice>
@@ -29,53 +87,21 @@ where
     }
 }
 
-impl<'a, AsSlice> Iterator for MultiJsonlByteParser<'a, AsSlice>
-where
-    AsSlice: AsRef<[u8]>,
-{
-    type Item = &'a [u8];
+#[allow(unreachable_code)]
+fn parse_slice_lf<'a, AsSlice>(s: &'a [u8]) -> LocationMap<32> {
+    #[cfg(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        target_feature = "avx512bw"
+    ))]
+    return unsafe { find_all_matches_m512(s, b'\n') };
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut current_iter_counter = self.counter;
-        loop {
-            if current_iter_counter >= self.slice_len {
-                return None;
-            }
-            let b = unsafe { self.slice.as_ref().get_unchecked(current_iter_counter) };
-            match b {
-                // End of line and inside a string
-                b'\n' if self.quote_counter % 2 == 1 => self.last = b,
-
-                // End of line and NOT inside a string
-                b'\n' if self.quote_counter % 2 == 0 => {
-                    self.last = b;
-                    current_iter_counter += 1;
-                    break;
-                }
-                //
-                // Quote inside a string
-                b'"' if self.last == &b'\\' => {
-                    self.last = b;
-                }
-
-                // Quote, but not inside a string
-                b'"' if self.last != &b'\\' => {
-                    self.last = b;
-                    self.quote_counter += 1;
-                }
-                _ => self.last = b,
-            };
-            current_iter_counter += 1;
-        }
-        if current_iter_counter == 0 {
-            None
-        } else {
-            let lower_bound = self.counter;
-            self.counter = current_iter_counter;
-            let out = &self.slice.as_ref()[lower_bound..self.counter];
-            Some(out)
-        }
-    }
+    #[cfg(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        target_feature = "avx2"
+    ))]
+    return unsafe { find_all_matches_m256(s, b'\n') };
+    #[cfg(not(any(target_feature = "avx512bw", target_feature = "avx2")))]
+    return find_all_matches_fallback(s, b'\n');
 }
 
 #[cfg(test)]
@@ -83,22 +109,4 @@ mod test {
 
     use super::*;
     use pretty_assertions::assert_eq;
-    #[test]
-    fn test_small_example_jsonl_len() {
-        let sliced = std::fs::read("./tests/test_data/jsonl_file.jsonl").unwrap();
-        let iter = MultiJsonlByteParser::new(&sliced);
-        // dbg!('\n' as u32 );
-        dbg!("b\n".as_bytes());
-        assert_eq!(iter.count(), 1)
-    }
-
-    #[test]
-    fn test_small_example_jsonl_() {
-        let sliced = std::fs::read("./tests/test_data/jsonl_file.jsonl").unwrap();
-        let mut slices_actual: Vec<u8> = Vec::default();
-        for v in MultiJsonlByteParser::new(&sliced) {
-            slices_actual.extend(v);
-        }
-        assert_eq!(sliced, slices_actual)
-    }
 }

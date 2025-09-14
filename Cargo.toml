@@ -7,4 +7,9 @@ edition = "2024"
 memmap2 = "0.9.5"
 
 [dev-dependencies]
+criterion = "0.7.0"
 pretty_assertions = "1.4.1"
+
+[[bench]]
+name = "read_speed"
+harness = false
